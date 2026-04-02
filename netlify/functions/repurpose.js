@@ -1,6 +1,7 @@
 const https = require('https');
 
-export default async function handler(req, res) {
+exports.handler = async function(event) {
+
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -8,28 +9,35 @@ export default async function handler(req, res) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).setHeader('Access-Control-Allow-Origin', '*').end();
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
   const apiKey = process.env.GROQ_API_KEY;
-
   if (!apiKey) {
-    return res.status(500).json({ error: 'GROQ_API_KEY not set in Vercel environment variables' });
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'GROQ_API_KEY not set in Netlify environment variables' })
+    };
   }
 
   let content, tone, platforms;
   try {
-    const body = req.body;
+    const body = JSON.parse(event.body);
     content = body.content;
     tone = body.tone || 'professional';
     platforms = body.platforms || ['twitter','linkedin','instagram','youtube','newsletter'];
   } catch(e) {
-    return res.status(400).json({ error: 'Invalid request body: ' + e.message });
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ error: 'Invalid request body: ' + e.message })
+    };
   }
 
   const toneDesc = {
@@ -40,6 +48,7 @@ export default async function handler(req, res) {
 
   // Generate one platform at a time to avoid token limits
   const results = {};
+
   const platformPrompts = {
     twitter: 'A Twitter/X thread: start with "1/", write 4-5 short punchy tweets numbered 1/ 2/ 3/ etc, add emojis, max 280 chars per tweet',
     linkedin: 'A LinkedIn post: strong opening hook, use → bullet points, end with a question to drive engagement, 150-300 words',
@@ -50,9 +59,12 @@ export default async function handler(req, res) {
 
   for (const platform of platforms) {
     const prompt = `You are Sprouty, an AI content repurposing tool.
+
 Repurpose the blog post below into ${platformPrompts[platform]}.
 Tone: ${toneDesc[tone] || toneDesc.professional}
+
 Return ONLY the content text. No labels, no JSON, no explanation. Just the ready-to-post content.
+
 Blog post:
 ${content}`;
 
@@ -75,26 +87,34 @@ ${content}`;
             'Content-Length': Buffer.byteLength(requestBody)
           }
         };
+
         const req = https.request(options, (res) => {
           let data = '';
           res.on('data', (chunk) => { data += chunk; });
           res.on('end', () => resolve({ statusCode: res.statusCode, body: data }));
         });
+
         req.on('error', reject);
         req.write(requestBody);
         req.end();
       });
 
       const parsed = JSON.parse(response.body);
+
       if (response.statusCode === 200) {
         results[platform] = parsed.choices[0].message.content.trim();
       } else {
         results[platform] = 'Error generating this platform: ' + (parsed.error?.message || 'Unknown error');
       }
+
     } catch(e) {
       results[platform] = 'Network error for this platform. Please regenerate.';
     }
   }
 
-  return res.status(200).json(results);
-}
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify(results)
+  };
+};
