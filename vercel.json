@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api/repurpose.js": {
+      "memory": 256,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/.netlify/functions/repurpose", "destination": "/api/repurpose" }
+  ]
+}
