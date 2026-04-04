@@ -321,5 +321,6 @@ setTimeout(()=>{animC(document.getElementById('c1'),5,'');animC(document.getElem
 function googleSignIn(){alert('Google sign in coming soon! For now try Sprouty free — no account needed 🌱')}
 function saveEmail(e){const email=document.getElementById('login-email').value;if(!email||!email.includes('@')){e.preventDefault();document.getElementById('login-email').style.borderColor='rgba(224,85,85,.5)';setTimeout(()=>document.getElementById('login-email').style.borderColor='',1500)}else{localStorage.setItem('sprouty_email',email)}}
 </script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
